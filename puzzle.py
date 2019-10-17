@@ -22,36 +22,30 @@ class Puzzle:
             if( self._solved() ): return
 
             for nine in self.nines_list:
-                row = self._get_others_in_row(nine.point)
-                col = self._get_others_in_col(nine.point)
+                row = self._get_row(nine.point[1])
+                col = self._get_col(nine.point[0])
 
-                for val in range(1,9):
-                    known = nine.get_known(val)
-                    '''
-                    for know in known:
-                        for n in row:
-                            n.clear_row(val, known[1])
-                        for n in col:
-                            n.clear_row(val, known[0])
+                knownsingles = nine.get_known()
 
-                    '''
+                for knownsingle in knownsingles:
+                    for n in row:
+                        n.clear_row(knownsingle.value[0], knownsingle.point[1])
+                    for c in col:
+                        c.clear_col(knownsingle.value[0], knownsingle.point[0])
 
-
+                nine.internal_nine_check()
 
     def _solved(self):
-        return False
+        for nine in self.nines_list:
+            if not nine.known:
+                return False
+        return True
 
-    def _get_others_in_row(self, point):
-        ret = []
-        for i in range(3):
-            if i != point[0]: ret.append(self.nines[i][point[1]])
-        return ret
+    def _get_row(self, row):
+        return [self.nines[i][row] for i in range(3)]
 
-    def _get_others_in_col(self, point):
-        ret = []
-        for i in range(3):
-            if i != point[1]: ret.append(self.nines[point[0]][i])
-        return ret
+    def _get_col(self, col):
+        return [self.nines[col][i] for i in range(3)]
 
 class Nine:
     def __init__(self, point, values = 0):
@@ -84,21 +78,41 @@ class Nine:
                 return
         self.known = True
 
-    def get_known(self, value=0):
+    def internal_nine_check(self):
+        if self.known: return
+
+        known = self.get_known()
+        if len(known) < 1: return
+
+        for s in self.singles_list:
+            if s.known:
+                continue
+
+            for know in known:
+                s.remove(know.value[0])
+
+        self._update()
+
+    def get_known(self):
+        known = []
         for single in self.singles_list:
-            if single.known and single.value[0] == value:
-                return (single.point) # value within 3x3 grid
+            if single.known:
+                known.append(single) # value within 3x3 grid
 
         # if unknown, can we identify only row or column?
         # add more checking
 
-        return(-1,-1)
+        return known
 
     def clear_row(self, val, row):
-        pass
+        for single in self.singles_list:        # this scans all nine when we only need to check three
+            if single.point[1] == row:
+                single.remove(val)
 
     def clear_col(self, val, col):
-        pass
+        for single in self.singles_list:        # this scans all nine when we only need to check three
+            if single.point[0] == col:
+                single.remove(val)
 
 class Single:
     def __init__(self, point ,value=0):
@@ -109,7 +123,14 @@ class Single:
         self.point = point
 
         self.known = False if value == 0 else True
-        self.value = [].append(value) if self.known else [x for x in range(1,10)]
+
+        if self.known:
+            self.value = []
+            self.value.append(value)
+        else:
+            self.value = [x for x in range(1, 10)]
+
+        print(self.value)
 
     def set_value(self, value):
         self.value = [].append(value)
