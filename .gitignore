@@ -123,3 +123,4 @@ dmypy.json
 .pyre/
 *.xml
 .idea/sudoku_solver.iml
+*.csv

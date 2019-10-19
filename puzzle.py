@@ -20,9 +20,12 @@ class Puzzle:
             self.nines.append([self.nines_list[i],self.nines_list[i+1],self.nines_list[i+2]])
 
     def solve(self):
-        display_board(self._get_status(), True)
+        # TODO: bug identified at puzzle 3611, solver gets stuck. Puzzle is solvable. Need 'forward pass' logic.
+        # If only one single in any given nine is the only single that has that digit as a remaining possibility,
+        # than that single must be that digit, regardless of how many other digits are also 'available'
+        display_board(self._get_status())
         while True:
-            if( self._solved() ): return
+            if( self._solved() ): return self._get_status(characters=True)
 
             for nine in self.nines_list:
 
@@ -61,7 +64,7 @@ class Puzzle:
             if nine.point[0] == col: ret.append(nine)
         return ret
 
-    def _get_status(self):
+    def _get_status(self, characters = False):
         '''
         Gather 81 values. Use zeros where unsure
         :return: List of values of each Single
@@ -81,7 +84,9 @@ class Puzzle:
         for x in ret:
             rtn = rtn + x
 
-        return rtn
+        if not characters:
+            return rtn
+        return [str(x) for x in rtn]
 
 class Nine:
     def __init__(self, point, values = 0):

@@ -58,4 +58,4 @@ def display_board(board_state, wait = False, size_px = 640):
     if wait:
         cv2.waitKey()
     else:
-        cv2.waitKey(75)
+        cv2.waitKey(1)
