@@ -1,5 +1,6 @@
 import numpy as np
 import math
+from sudoku_visualizer import display_board
 
 class Puzzle:
     def __init__(self, values = None):
@@ -10,20 +11,25 @@ class Puzzle:
 
         self.nines_list = []
         self.nines = []
-        for x in range(3):
-            for y in range(3):
-                self.nines_list.append( Nine((x,y), inputs[y*3:(y+1)*3, x*3:(x+1)*3]))
+        for y in range(3):
+            for x in range(3):
+                ninth = inputs[y*3:(y+1)*3, x*3:(x+1)*3]
+                self.nines_list.append( Nine((x,y), ninth))
 
         for i in range(0, len(self.nines_list), 3):
             self.nines.append([self.nines_list[i],self.nines_list[i+1],self.nines_list[i+2]])
 
     def solve(self):
+        display_board(self._get_status(), True)
         while True:
             if( self._solved() ): return
 
             for nine in self.nines_list:
-                row = self._get_row(nine.point[1])
-                col = self._get_col(nine.point[0])
+
+                xval = nine.point[0]
+                yval = nine.point[1]
+                row = self._get_row(yval)
+                col = self._get_col(xval)
 
                 knownsingles = nine.get_known()
 
@@ -35,6 +41,8 @@ class Puzzle:
 
                 nine.internal_nine_check()
 
+                display_board(self._get_status())
+
     def _solved(self):
         for nine in self.nines_list:
             if not nine.known:
@@ -42,10 +50,38 @@ class Puzzle:
         return True
 
     def _get_row(self, row):
-        return [self.nines[i][row] for i in range(3)]
+        ret = []
+        for nine in self.nines_list:
+            if nine.point[1] == row: ret.append(nine)
+        return ret
 
     def _get_col(self, col):
-        return [self.nines[col][i] for i in range(3)]
+        ret = []
+        for nine in self.nines_list:
+            if nine.point[0] == col: ret.append(nine)
+        return ret
+
+    def _get_status(self):
+        '''
+        Gather 81 values. Use zeros where unsure
+        :return: List of values of each Single
+        '''
+
+        ret = np.zeros((9,9), dtype=np.uint8)
+
+        for nine in self.nines_list:
+            p = nine.point
+            p = (p[1] * 3, p[0]*3)
+            values = nine.get_values()
+
+            ret[p[0]:p[0]+3, p[1]:p[1]+3] = values
+
+        ret = ret.tolist()
+        rtn = []
+        for x in ret:
+            rtn = rtn + x
+
+        return rtn
 
 class Nine:
     def __init__(self, point, values = 0):
@@ -59,18 +95,17 @@ class Nine:
         self.known = False
 
         values = np.asarray(values)
-        # build list of list of Single objects
-            # col then row
-        values = np.reshape(values.T, 9)
+
         self.singles_list = []
         self.singles = []
 
-        for idx in range(len(values)):
-            p = (idx%3, idx//3)
-            self.singles_list.append(Single(p, values[idx]))
+        for y in range(3):
+            for x in range(3):
+                self.singles_list.append(Single((x,y), values[y,x]))
 
-        for i in range(0, len(values), 3):
+        for i in range(0, len(self.singles_list), 3):
             self.singles.append([self.singles_list[i],self.singles_list[i+1],self.singles_list[i+2]])
+        # print(singles)
 
     def _update(self):
         for single in self.singles_list:
@@ -104,6 +139,16 @@ class Nine:
 
         return known
 
+    def get_values(self):
+        ret = np.zeros((3,3), dtype=np.uint8)
+        for single in self.singles_list:
+            p = single.point
+            p = (p[1], p[0])
+            if single.known:
+                ret[p] = single.value[0]
+
+        return  ret
+
     def clear_row(self, val, row):
         for single in self.singles_list:        # this scans all nine when we only need to check three
             if single.point[1] == row:
@@ -116,10 +161,6 @@ class Nine:
 
 class Single:
     def __init__(self, point ,value=0):
-        '''
-        Initialize this box in the 9x9 grid.
-        :param value: known value. Default to 0 if unknown or blank.
-        '''
         self.point = point
 
         self.known = False if value == 0 else True
@@ -130,12 +171,6 @@ class Single:
         else:
             self.value = [x for x in range(1, 10)]
 
-        print(self.value)
-
-    def set_value(self, value):
-        self.value = [].append(value)
-        self.known = True
-
     def remove(self, value):
         if self.known: return
 
@@ -145,6 +180,7 @@ class Single:
 
     def _update(self):
         if self.known == True: return
+
         if len(self.value) == 1:
             self.known = True
 

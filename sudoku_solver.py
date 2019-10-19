@@ -1,5 +1,6 @@
 from puzzle import Puzzle
 import numpy as np
+import cv2
 
 # Puzzle( np.arange(81).reshape((9,9)))
 filepath = './puzzles/puzzles.txt'
@@ -10,6 +11,8 @@ with open(filepath) as pz:
 
     print('Complete')
 
+    cv2.waitKey()
+    cv2.destroyAllWindows()
 
 
 
