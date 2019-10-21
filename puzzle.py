@@ -20,9 +20,6 @@ class Puzzle:
             self.nines.append([self.nines_list[i],self.nines_list[i+1],self.nines_list[i+2]])
 
     def solve(self):
-        # TODO: bug identified at puzzle 3611, solver gets stuck. Puzzle is solvable. Need 'forward pass' logic.
-        # If only one single in any given nine is the only single that has that digit as a remaining possibility,
-        # than that single must be that digit, regardless of how many other digits are also 'available'
         display_board(self._get_status())
         while True:
             if( self._solved() ): return self._get_status(characters=True)
@@ -34,7 +31,7 @@ class Puzzle:
                 row = self._get_row(yval)
                 col = self._get_col(xval)
 
-                knownsingles = nine.get_known()
+                knownsingles, unknowndigits = nine.get_known()
 
                 for knownsingle in knownsingles:
                     for n in row:
@@ -44,7 +41,13 @@ class Puzzle:
 
                 nine.internal_nine_check()
 
-                display_board(self._get_status())
+                self.display_board()
+
+    def display_board(self, name=None):
+        if name is not None:
+            display_board(self._get_status(),wait=True, name=name)
+        else:
+            display_board(self._get_status())
 
     def _solved(self):
         for nine in self.nines_list:
@@ -121,28 +124,41 @@ class Nine:
     def internal_nine_check(self):
         if self.known: return
 
-        known = self.get_known()
-        if len(known) < 1: return
+        known, unknown = self.get_known()
 
-        for s in self.singles_list:
-            if s.known:
-                continue
+        if len(known) > 0:
+            for s in self.singles_list:
+                if s.known:
+                    continue
 
-            for know in known:
-                s.remove(know.value[0])
+                for know in known:
+                    s.remove(know.value[0])
+
+        known, unknown = self.get_known()
+
+        for digit in unknown:
+            found = []
+            for s in self.singles_list:
+                if s.known: continue
+                if digit in s.value:
+                    found.append(s)
+
+            if len(found) == 1:
+                found[0].set_value(digit)
+                for s in self.singles_list:
+                    s.remove(digit)
 
         self._update()
 
     def get_known(self):
         known = []
+        unknown = list(range(1,10))
         for single in self.singles_list:
             if single.known:
                 known.append(single) # value within 3x3 grid
-
-        # if unknown, can we identify only row or column?
-        # add more checking
-
-        return known
+                if single.value[0] in unknown:
+                    unknown.remove(single.value[0])
+        return known, unknown
 
     def get_values(self):
         ret = np.zeros((3,3), dtype=np.uint8)
@@ -175,6 +191,15 @@ class Single:
             self.value.append(value)
         else:
             self.value = [x for x in range(1, 10)]
+
+    def set_value(self, value):
+        if self.known: return
+        if value not in self.value: return
+
+        tmp = []
+        tmp.append(value)
+        self.value = tmp
+        self._update()
 
     def remove(self, value):
         if self.known: return

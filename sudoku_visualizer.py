@@ -20,7 +20,7 @@ def _build_single_panel(dimensions, value):
 
     return ret
 
-def display_board(board_state, wait = False, size_px = 640):
+def display_board(board_state, wait = False, size_px = 640, name = 'Sudoku Solver'):
     #board state should be passed in as a list of integers or np array of shape 9x9
 
     panel_size = size_px // 9
@@ -54,7 +54,7 @@ def display_board(board_state, wait = False, size_px = 640):
             x = 0
             y+=1
 
-    cv2.imshow('Sudoku Solver', board)
+    cv2.imshow(name, board)
     if wait:
         cv2.waitKey()
     else:
