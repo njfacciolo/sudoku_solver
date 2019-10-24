@@ -19,12 +19,16 @@ class Puzzle:
         for i in range(0, len(self.nines_list), 3):
             self.nines.append([self.nines_list[i],self.nines_list[i+1],self.nines_list[i+2]])
 
-    def solve(self):
-        display_board(self._get_status())
+    def solve(self, display_updates = False):
+        if display_updates:
+            display_board(self._get_status())
         while True:
-            if( self._solved() ): return self._get_status(characters=True)
+            if( self._solved() ):
+                return self._get_status(characters=True)
 
             for nine in self.nines_list:
+                if (self._solved()):
+                    return self._get_status(characters=True)
 
                 xval = nine.point[0]
                 yval = nine.point[1]
@@ -36,12 +40,74 @@ class Puzzle:
                 for knownsingle in knownsingles:
                     for n in row:
                         n.clear_row(knownsingle.value[0], knownsingle.point[1])
+                        if display_updates:
+                            self.display_board()
+                        if (self._solved()):
+                            return self._get_status(characters=True)
                     for c in col:
                         c.clear_col(knownsingle.value[0], knownsingle.point[0])
+                        if display_updates:
+                            self.display_board()
+                        if (self._solved()):
+                            return self._get_status(characters=True)
 
                 nine.internal_nine_check()
 
-                self.display_board()
+                if display_updates:
+                    self.display_board()
+
+    def solve_recursive(self, board, display_updates = False):
+        success, board = self._solve_recursive(board, (0, 0), display_updates)
+        return board
+
+    def _solve_recursive(self, board, index, display_updates):
+        row,col = index
+        if row > 8 or col > 8: return True, board     # reached the end, exit, success = true
+        success = False
+
+        if board[row,col] == 0:
+            for i in range(1,10):
+                board[row,col] = i
+                if self._check_state(board, row, col):
+                    success, board = self._solve_recursive(board, self._get_next_row_col(row,col), display_updates)
+                    if success:
+                        break
+            if not success:
+                board[row,col] = 0
+        else:
+            success, board = self._solve_recursive(board, self._get_next_row_col(row,col), display_updates)
+
+        boardstatus = [x for r in board for x in r]
+        if display_updates:
+            display_board(boardstatus, name='Recursive Solver')
+
+        return success, board
+
+    def _check_state(self, board, row, col):
+        val = board[row,col]
+
+        if list(board[:,col]).count(val) > 1:
+            return False
+        if list(board[row,:]).count(val) > 1:
+            return False
+
+        nine_row = (row//3) * 3
+        nine_col = (col//3)*3
+        nine = board[nine_row: nine_row + 3, nine_col:nine_col + 3]
+        nine_list = [x for r in nine for x in r]
+
+        if nine_list.count(val) > 1:
+            return  False
+        return True
+
+    def _get_next_row_col(self, row, col):
+        newcol = col+1
+        newrow = row
+        if newcol ==9:
+            newcol = 0
+            newrow +=1
+
+        return newrow, newcol
 
     def display_board(self, name=None):
         if name is not None:

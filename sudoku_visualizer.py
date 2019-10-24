@@ -56,6 +56,6 @@ def display_board(board_state, wait = False, size_px = 640, name = 'Sudoku Solve
 
     cv2.imshow(name, board)
     if wait:
-        cv2.waitKey()
+        cv2.waitKey(1)
     else:
         cv2.waitKey(1)
