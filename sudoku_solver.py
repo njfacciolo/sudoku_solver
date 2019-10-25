@@ -31,6 +31,12 @@ if __name__ == "__main__":
         try:
             for input, solution in reader:
                 ct+=1
+
+                if show_recursive:
+                    display_board( ([int(x) for x in input]), name='Recursive Solver')
+                if show_standard:
+                    display_board([int(x) for x in input])
+
                 input = np.reshape(np.asarray([int(num) for num in input.strip()]), (9, 9))
 
                 start_standard = time.perf_counter()
@@ -48,8 +54,8 @@ if __name__ == "__main__":
                 _check_solution(solution, standard_out, ct, 'Standard Solver')
 
                 print('Puzzle: {}   Recursive time: {:.3f}  Standard time: {:.3f}'.format((ct), recursive_time, standard_time ))
-                print('Puzzle: {}   Recursive avg: {:.3f}  Standard avg: {:.3f}'.format((ct), recursive_sum/ct,
-                                                                                          standard_sum/ct))
+                print('Puzzle: {}   Recursive total: {:.3f}  Standard total: {:.3f}'.format((ct), recursive_sum,
+                                                                                          standard_sum))
         except KeyboardInterrupt:
             pass
         cv2.destroyAllWindows()

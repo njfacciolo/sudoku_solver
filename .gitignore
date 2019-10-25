@@ -124,3 +124,4 @@ dmypy.json
 *.xml
 .idea/sudoku_solver.iml
 *.csv
+puzzles/test_puzzle_1.jpg
