@@ -9,12 +9,14 @@ class Puzzle:
         else:
             inputs = np.asarray(values)
 
+        self.update_required = False
+
         self.nines_list = []
         self.nines = []
         for y in range(3):
             for x in range(3):
                 ninth = inputs[y*3:(y+1)*3, x*3:(x+1)*3]
-                self.nines_list.append( Nine((x,y), ninth))
+                self.nines_list.append( Nine(self, (x,y), ninth))
 
         for i in range(0, len(self.nines_list), 3):
             self.nines.append([self.nines_list[i],self.nines_list[i+1],self.nines_list[i+2]])
@@ -40,21 +42,14 @@ class Puzzle:
                 for knownsingle in knownsingles:
                     for n in row:
                         n.clear_row(knownsingle.value[0], knownsingle.point[1])
-                        if display_updates:
-                            self.display_board()
                         if (self._solved()):
                             return self._get_status(characters=True)
                     for c in col:
                         c.clear_col(knownsingle.value[0], knownsingle.point[0])
-                        if display_updates:
-                            self.display_board()
                         if (self._solved()):
                             return self._get_status(characters=True)
 
                 nine.internal_nine_check()
-
-                if display_updates:
-                    self.display_board()
 
     def solve_recursive(self, board, display_updates = False):
         success, board = self._solve_recursive(board, (0, 0), display_updates)
@@ -158,13 +153,12 @@ class Puzzle:
         return [str(x) for x in rtn]
 
 class Nine:
-    def __init__(self, point, values = 0):
+    def __init__(self,puzzle, point, values = 0):
         '''
         Initialize this grid of 3x3 within the full 9x9 grid
         :param point: Location of the 3x3 grid within the full grid. Can range from 0-2 for each axis
         :param values: np array of uint size 3x3 indicating the values of the Singles where 0 is unknown
         '''
-
         self.point = point
         self.known = False
 
@@ -175,7 +169,7 @@ class Nine:
 
         for y in range(3):
             for x in range(3):
-                self.singles_list.append(Single((x,y), values[y,x]))
+                self.singles_list.append(Single(puzzle, (x,y), values[y,x]))
 
         for i in range(0, len(self.singles_list), 3):
             self.singles.append([self.singles_list[i],self.singles_list[i+1],self.singles_list[i+2]])
@@ -247,7 +241,8 @@ class Nine:
                 single.remove(val)
 
 class Single:
-    def __init__(self, point ,value=0):
+    def __init__(self, puzzle, point ,value=0):
+        self.puzzle = puzzle
         self.point = point
 
         self.known = False if value == 0 else True
@@ -279,5 +274,6 @@ class Single:
 
         if len(self.value) == 1:
             self.known = True
+            self.puzzle.display_board()
 
 
