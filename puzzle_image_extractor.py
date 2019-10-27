@@ -347,13 +347,15 @@ def _get_values(model, binary, gray):
                 classified_values[row, col, :] = [0, 1]
                 continue
 
-            compressed = cv2.morphologyEx(region, cv2.MORPH_ERODE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5,5)))
+            # compressed = cv2.morphologyEx(region, cv2.MORPH_ERODE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5,5)))
             # compressed = cv2.GaussianBlur(compressed,(3,3), 1)
-            compressed = cv2.resize(compressed, (28, 28))
+            compressed = cv2.resize(region, (28, 28)).astype('float32')
 
             # cv2.imshow('post-suppression', compressed)
 
-            inputs = np.reshape(compressed, (1, nn_input_len)).astype('float32')/255
+            inputs = compressed / 255
+            inputs = np.reshape(compressed, [1,28, 28, 1]).astype('float32')
+
             model_prediction = model.predict(inputs)
             digit = np.argmax(model_prediction)
             confidence = model_prediction[0][digit]
@@ -402,6 +404,9 @@ def extract_puzzle(img, display_step_time=200):
     model = _load_digit_model()
     if model is None:
         return
+
+    # Print information about each layer's outputs and trainable values
+    # print(model.summary())
 
     # Puzzle status where 0 represents unknown
     ret = np.zeros((9, 9), dtype=np.uint8)
