@@ -52,12 +52,14 @@ def _show_image(img):
 
 
 def _load_digit_model():
-    model_path = 'digit_model/model.json'
-    weights_path = 'digit_model/model.h5'
+    model_path = os.path.abspath('digit_model/digit_model.json')
+    weights_path = os.path.abspath('digit_model/model.h5')
 
     # Check if model exists
     if (not os.path.exists(model_path) or not os.path.exists(weights_path)):
+        print('Failed to find the digit recognition model.')
         _train_digit_model()
+        # return None
 
     # load json and create model
     json_file = open(model_path, 'r')
@@ -277,7 +279,7 @@ def _edge_suppression(img):
 
     # Check that atleast one contour was found
     if len(contours) < 1:
-        return ret
+        return ret, False
 
     epsilon = 1
     largest_contour = sorted(contours, key=cv2.contourArea, reverse=True)[0]
@@ -287,13 +289,13 @@ def _edge_suppression(img):
 
     # Ensure area requirements are met
     if w*h < (orig_rows *orig_cols)*min_area:
-        return ret
+        return ret, False
 
     # Ensure the contour is not on the wall
     if center_x < orig_cols*edge_suppression_ratio or (orig_cols - center_x) < orig_cols*edge_suppression_ratio:
-        return ret
+        return ret, False
     if center_y < orig_rows*edge_suppression_ratio or (orig_rows - center_y) < orig_rows*edge_suppression_ratio:
-        return ret
+        return ret, False
 
 
     n_h = int(h*fitment)
@@ -307,12 +309,7 @@ def _edge_suppression(img):
     new_region[row_paste_origin:row_paste_origin+h, col_paste_origin:col_paste_origin+w] = temp[y:y+h, x:x+w]
     new_region = cv2.resize(new_region, (orig_cols,orig_rows))
 
-    #for contour in contours:
-    #    x, y, w, h = bounding_box
-    #    if w/h < 0.2 or h/w < 0.2:
-    #        img[y:y+h, x:x+w] = 0
-
-    return new_region
+    return new_region, True
 
 
 def _get_values(model, binary, gray):
@@ -320,25 +317,18 @@ def _get_values(model, binary, gray):
     # blocks and perform number extraction
 
     rows, cols = binary.shape[:2]
-    ret = []
     if rows != cols:
-        return ret
+        return ''
 
     step_size = rows/9
 
 
 
     suppressed_grid_gray, suppressed_grid_binary = _suppress_grid_lines(binary, gray)
-    _show_image(suppressed_grid_gray)
+    # _show_image(suppressed_grid_gray)
     _show_image(suppressed_grid_binary)
 
-    colored = _safe_convert_to_color(suppressed_grid_binary)
-    # Draw grid lines
-    for row in range(1, 9):
-        cv2.line(colored, (int(row*step_size), 0), (int(row*step_size), cols-1), (0,255,0), 2)
-    for col in range(1, 9):
-        cv2.line(colored, (0, int(col*step_size)), (rows-1, int(col*step_size)), (0,255,0), 2)
-    # _show_image(colored)
+    classified_values = np.zeros((9,9,2))
 
     nn_input_len = 28*28
     for row in range(9):
@@ -350,9 +340,12 @@ def _get_values(model, binary, gray):
             region = suppressed_grid_binary[slice_row1:slice_row2, slice_col1:slice_col2 ]
             # cv2.imshow('pre-suppression', region)
 
-            region = _edge_suppression(region)
-
+            region, found_digit = _edge_suppression(region)
             suppressed_grid_binary[slice_row1:slice_row2, slice_col1:slice_col2 ] = region
+
+            if not found_digit:
+                classified_values[row, col, :] = [0, 1]
+                continue
 
             compressed = cv2.morphologyEx(region, cv2.MORPH_ERODE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5,5)))
             # compressed = cv2.GaussianBlur(compressed,(3,3), 1)
@@ -366,22 +359,29 @@ def _get_values(model, binary, gray):
             confidence = model_prediction[0][digit]
             print('Digit: {}   Confidence: {:.3f}'.format(digit, confidence))
 
-            origin = (int(col*step_size+10), int((row*step_size)+50))
-            if(confidence > 0.4):
-                cv2.putText(colored, str(digit), origin, cv2.FONT_HERSHEY_PLAIN, 2, (0,255,0), 2 )
-            else:
-                cv2.putText(colored, str(0), origin, cv2.FONT_HERSHEY_PLAIN, 2, (0,255,0), 2 )
-
-            # cv2.waitKey()
+            classified_values[row,col,:] = [digit, confidence]
 
 
-            # cv2.imshow('compressed region', compressed)
-            # cv2.waitKey(0)
+    colored = _safe_convert_to_color(suppressed_grid_binary)
+    # Draw grid lines
+    for row in range(1, 9):
+        cv2.line(colored, (int(row * step_size), 0), (int(row * step_size), cols - 1), (0, 255, 0), 2)
+    for col in range(1, 9):
+        cv2.line(colored, (0, int(col * step_size)), (rows - 1, int(col * step_size)), (0, 255, 0), 2)
+    # _show_image(colored)
+
+    detected_board_string = ''
+    for row in range(9):
+        for col in range(9):
+            origin = (int(col * step_size + 10), int((row * step_size) + 50))
+            digit, confidence = classified_values[row, col, :]
+            cv2.putText(colored, str(int(digit)), origin, cv2.FONT_HERSHEY_PLAIN, 2, (0, 255, 0), 2)
+            detected_board_string+= str(int(digit))
+
+
     _show_image(colored)
-    # cv2.destroyWindow('compressed region')
 
-
-
+    return detected_board_string
 
 
 def extract_puzzle(img, display_step_time=200):
@@ -400,6 +400,8 @@ def extract_puzzle(img, display_step_time=200):
 
     # ML digit classifier
     model = _load_digit_model()
+    if model is None:
+        return
 
     # Puzzle status where 0 represents unknown
     ret = np.zeros((9, 9), dtype=np.uint8)
@@ -424,13 +426,26 @@ def extract_puzzle(img, display_step_time=200):
     transformed_binary = _four_point_transform(morphology, puzzle_region)
 
     values = _get_values(model, transformed_binary, transformed_gray)
+    # print('Detected Board: {}'.format(values))
+
+    txt_file = open("puzzles/test_puzzle_1_input.txt", "r")
+    correct_board_status = txt_file.readline().strip()
+
+    total_digits = 0
+    total_correct = 0
+    for value in range(len(correct_board_status)):
+        if correct_board_status[value] != str(0):
+            total_digits += 1
+            if correct_board_status[value] == values[value]:
+                total_correct +=1
+
+    print('Correctly detected digits: {}/{}, {:.2f}%'.format(total_correct, total_digits, 100*(total_correct/total_digits)))
 
 
-
-
+    cv2.waitKey()
     cv2.destroyAllWindows()
 
 
 # Test
 image = cv2.imread('puzzles/test_puzzle_1.jpg')
-extract_puzzle(image, -1)
+extract_puzzle(image, 1)
