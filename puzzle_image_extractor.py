@@ -41,10 +41,9 @@ class Image_Displayer:
 
             new_rows, new_cols = int(rows * ratio), int(cols * ratio)
 
-            return cv2.resize(img, (new_rows, new_cols))
+            return cv2.resize(img, (new_cols, new_rows))
 
         return img
-
 
 
 def _show_image(img):
@@ -96,6 +95,18 @@ def _safe_convert_to_color(img, display = False):
         ret = img
     if display: _show_image(ret)  # Normally don't need to display this
     return ret
+
+
+def _normalize_dimensions(img, normalize_px, display = False):
+    orig_rows, orig_cols = img.shape[:2]
+    row_ratio, col_ratio = normalize_px / orig_rows, normalize_px / orig_cols
+
+    ratio = max(row_ratio, col_ratio)
+    # one or more dimension is greater than target, must reduce image size
+    if row_ratio < 1 or col_ratio < 1:
+        ratio = min(row_ratio, col_ratio)
+
+    return cv2.resize(img, (int(orig_cols * ratio), int(orig_rows * ratio)))
 
 
 def _blur(img, kernel_size):
@@ -164,26 +175,6 @@ def _filter_contours(img, contours):
     return ret
 
 
-def _get_singles(img_gray, corners):
-    corners = sorted(corners)
-
-    top_left = corners[0]
-    top_right = corners[1]
-    if top_left[1] > top_right[1]:
-        top_left = corners[1]
-        top_right = corners[0]
-
-    bottom_left = corners[2]
-    bottom_right = corners[3]
-    if bottom_left[1] > bottom_right[1]:
-        bottom_left = corners[1]
-        bottom_right = corners[0]
-
-    # print(corner for corner in corners)
-
-    return 0
-
-
 def _order_points(pts):
     # Originally from: https://www.pyimagesearch.com/2014/08/25/4-point-opencv-getperspective-transform-example/
     # Light cleanup
@@ -197,25 +188,23 @@ def _order_points(pts):
     ret[1] = pts[np.argmin(diff)]
     ret[3] = pts[np.argmax(diff)]
 
-    return list(ret)
+    return np.asarray(list(ret))
 
 
 def _four_point_transform(image, pts):
     # Originally from: https://www.pyimagesearch.com/2014/08/25/4-point-opencv-getperspective-transform-example/
 
     pts = np.asarray([np.array(pt) for pt in pts], dtype = np.float32)
+    pts = _order_points(pts)
 
     new_width = min(Image_Displayer.DISPLAY_SIZE)
     new_height = new_width
 
     dst = np.array([
         [0, 0],
-        [0, new_width - 1],
+        [new_width - 1, 0],
         [new_width - 1, new_height - 1],
-        [new_height - 1, 0]], dtype=np.float32)
-
-    # print(dst)
-    # print(pts)
+        [0, new_height - 1]], dtype=np.float32)
 
     # compute the perspective transform matrix and then apply it
     M = cv2.getPerspectiveTransform(pts, dst)
@@ -264,10 +253,10 @@ def _suppress_grid_lines(binary, gray):
     return  gray, binary
 
 
-def _edge_suppression(img):
-    min_area = 0.1
-    edge_suppression_ratio = 0.1
+def _edge_suppression(img, debug_mode = False):
+    min_area = 0.015
     fitment = 1.75
+    max_central_offset = 0.2
     orig_rows, orig_cols = img.shape[:2]
     ret = np.zeros((orig_rows,orig_cols), dtype=np.uint8)
 
@@ -282,34 +271,36 @@ def _edge_suppression(img):
         return ret, False
 
     epsilon = 1
-    largest_contour = sorted(contours, key=cv2.contourArea, reverse=True)[0]
-    polygon = cv2.approxPolyDP(largest_contour, epsilon, True)
-    x, y, w, h = cv2.boundingRect(polygon)
-    center_x, center_y = x + (w//2), y + (h//2)
+    sorted_contours = sorted(contours, key=cv2.contourArea, reverse=True)
 
-    # Ensure area requirements are met
-    if w*h < (orig_rows *orig_cols)*min_area:
-        return ret, False
+    for contour in sorted_contours:
+        polygon = cv2.approxPolyDP(contour, epsilon, True)
+        x, y, w, h = cv2.boundingRect(polygon)
+        center_x, center_y = x + (w // 2), y + (h // 2)
 
-    # Ensure the contour is not on the wall
-    if center_x < orig_cols*edge_suppression_ratio or (orig_cols - center_x) < orig_cols*edge_suppression_ratio:
-        return ret, False
-    if center_y < orig_rows*edge_suppression_ratio or (orig_rows - center_y) < orig_rows*edge_suppression_ratio:
-        return ret, False
+        # Ensure area requirements are met
+        if w*h < (orig_rows *orig_cols)*min_area:
+            continue
 
+        if abs(center_x - (orig_cols//2)) > int(orig_cols*max_central_offset):
+            continue
+        if abs(center_y - (orig_rows//2)) > int(orig_rows*max_central_offset):
+            return ret, False
 
-    n_h = int(h*fitment)
+        n_h = int(max(w,h)*fitment)
 
-    # Build a new 'region' with the digit in the middle to hopefully improve detection with NN
-    new_region = np.zeros((n_h, n_h), dtype=np.uint8)
+        # Build a new 'region' with the digit in the middle to hopefully improve detection with NN
+        new_region = np.zeros((n_h, n_h), dtype=np.uint8)
 
-    row_paste_origin = (n_h//2) - (h//2)
-    col_paste_origin  = (n_h//2) - (w//2)
+        row_paste_origin = (n_h//2) - (h//2)
+        col_paste_origin  = (n_h//2) - (w//2)
 
-    new_region[row_paste_origin:row_paste_origin+h, col_paste_origin:col_paste_origin+w] = temp[y:y+h, x:x+w]
-    new_region = cv2.resize(new_region, (orig_cols,orig_rows))
+        new_region[row_paste_origin:row_paste_origin+h, col_paste_origin:col_paste_origin+w] = temp[y:y+h, x:x+w]
+        new_region = cv2.resize(new_region, (orig_cols,orig_rows))
 
-    return new_region, True
+        return new_region, True
+
+    return ret, False
 
 
 def _get_values(model, binary, gray):
@@ -340,7 +331,7 @@ def _get_values(model, binary, gray):
             region = suppressed_grid_binary[slice_row1:slice_row2, slice_col1:slice_col2 ]
             # cv2.imshow('pre-suppression', region)
 
-            region, found_digit = _edge_suppression(region)
+            region, found_digit = _edge_suppression(region, debug_mode=True)
             suppressed_grid_binary[slice_row1:slice_row2, slice_col1:slice_col2 ] = region
 
             if not found_digit:
@@ -348,13 +339,13 @@ def _get_values(model, binary, gray):
                 continue
 
             # compressed = cv2.morphologyEx(region, cv2.MORPH_ERODE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5,5)))
-            # compressed = cv2.GaussianBlur(compressed,(3,3), 1)
-            compressed = cv2.resize(region, (28, 28)).astype('float32')
+            compressed = cv2.GaussianBlur(region,(3,3), 1)
+            compressed = cv2.resize(compressed, (28, 28)).astype('float32')
 
             # cv2.imshow('post-suppression', compressed)
 
             inputs = compressed / 255
-            inputs = np.reshape(compressed, [1,28, 28, 1]).astype('float32')
+            inputs = np.reshape(inputs, [1,28, 28, 1]).astype('float32')
 
             model_prediction = model.predict(inputs)
             digit = np.argmax(model_prediction)
@@ -396,8 +387,9 @@ def extract_puzzle(img, display_step_time=200):
     '''
 
     Image_Displayer.DISPLAY_TIME = display_step_time
+    normalized_max_dimension = 900 #px
     gaussian_kernel_size = 5
-    adaptive_kernel_size = 39
+    adaptive_kernel_size = 31
     adaptive_offset = 9
 
     # ML digit classifier
@@ -409,48 +401,72 @@ def extract_puzzle(img, display_step_time=200):
     # print(model.summary())
 
     # Puzzle status where 0 represents unknown
-    ret = np.zeros((9, 9), dtype=np.uint8)
+    ret = ''.join(str(0) for x in range(81))
 
     gray = _safe_convert_to_gray(img)
 
-    blur = _blur(gray, gaussian_kernel_size)
+    normalized = _normalize_dimensions(gray, normalized_max_dimension)
+
+    blur = _blur(normalized, gaussian_kernel_size)
 
     binary = _adaptive_threshold(blur, adaptive_kernel_size, adaptive_offset)
 
-    morphology = _apply_morphology(binary)
+    # morphology = _apply_morphology(binary)
 
-    contours = _get_contours(morphology)
+    contours = _get_contours(binary)
 
-    puzzle_region = _filter_contours(morphology, contours)
+    puzzle_region = _filter_contours(binary, contours)
 
     if puzzle_region is None or len(puzzle_region) != 4:
         print('Failed to find any suitable contours representative of a sudoku board.')
         return ret  # Empty board
 
-    transformed_gray = _four_point_transform(gray, puzzle_region)
-    transformed_binary = _four_point_transform(morphology, puzzle_region)
+    transformed_gray = _four_point_transform(normalized, puzzle_region)
+    transformed_binary = _four_point_transform(binary, puzzle_region)
 
     values = _get_values(model, transformed_binary, transformed_gray)
-    # print('Detected Board: {}'.format(values))
 
-    txt_file = open("puzzles/test_puzzle_1_input.txt", "r")
-    correct_board_status = txt_file.readline().strip()
-
-    total_digits = 0
-    total_correct = 0
-    for value in range(len(correct_board_status)):
-        if correct_board_status[value] != str(0):
-            total_digits += 1
-            if correct_board_status[value] == values[value]:
-                total_correct +=1
-
-    print('Correctly detected digits: {}/{}, {:.2f}%'.format(total_correct, total_digits, 100*(total_correct/total_digits)))
+    return values
 
 
-    cv2.waitKey()
+if __name__ == "__main__":
+    display_speed = 150             # -1 waits for user at each step, 0 displays nothing, else display in ms
+
+    image_types = ['.jpg', '.JPG', '.png', '.PNG']
+    target_dir = 'puzzles/puzzle_pictures/'
+    allfiles = os.listdir(target_dir)
+    image_files = [file for file in allfiles for image_type in image_types if file.endswith(image_type)]
+
+    with open(target_dir + "test_answers.txt", "r") as txt_file:
+        answers = txt_file.readlines()
+
+    for target, answer_raw in zip(image_files, answers):
+        image = cv2.imread(target_dir + target)
+        prediction = extract_puzzle(image, display_speed)
+
+        answer = answer_raw.strip()
+
+        total_digits = 0
+        total_correct = 0
+        incorrect = []
+        for value in range(len(answer)):
+            if answer[value] != str(0):
+                total_digits += 1
+                a = answer[value]
+                p = prediction[value]
+                if answer[value] == prediction[value]:
+                    total_correct +=1
+                else:
+                    incorrect.append(value)
+
+        print('Correctly detected digits: {}/{}, {:.2f}%'.format(total_correct, total_digits,
+                                                                 100 * (total_correct / total_digits)))
+        if total_digits is not total_correct:
+            print('Detected board: {}'.format(prediction))
+            print('Expected board: {}'.format(answer))
+        cv2.waitKey()
+
     cv2.destroyAllWindows()
 
 
-# Test
-image = cv2.imread('puzzles/test_puzzle_1.jpg')
-extract_puzzle(image, 1)
+
