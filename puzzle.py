@@ -3,11 +3,13 @@ import math
 from sudoku_visualizer import display_board
 
 class Puzzle:
-    def __init__(self, values = None):
+    def __init__(self, values = None, display_updates = False):
         if values is None:
             inputs = np.zeros((9,9))
         else:
             inputs = np.asarray(values)
+
+        self.display_updates = display_updates
 
         self.update_required = False
 
@@ -21,8 +23,8 @@ class Puzzle:
         for i in range(0, len(self.nines_list), 3):
             self.nines.append([self.nines_list[i],self.nines_list[i+1],self.nines_list[i+2]])
 
-    def solve(self, display_updates = False):
-        if display_updates:
+    def solve(self):
+        if self.display_updates:
             display_board(self._get_status())
         while True:
             if( self._solved() ):
@@ -274,6 +276,7 @@ class Single:
 
         if len(self.value) == 1:
             self.known = True
-            self.puzzle.display_board()
+            if self.puzzle.display_updates:
+                self.puzzle.display_board()
 
 

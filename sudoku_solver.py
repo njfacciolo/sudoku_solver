@@ -40,7 +40,7 @@ if __name__ == "__main__":
                 input = np.reshape(np.asarray([int(num) for num in input.strip()]), (9, 9))
 
                 start_standard = time.perf_counter()
-                standard_out = Puzzle(input).solve(display_updates=show_standard)
+                standard_out = Puzzle(input, display_updates=show_standard).solve()
                 standard_time = time.perf_counter() - start_standard
 
                 start_recursive = time.perf_counter()
@@ -53,7 +53,8 @@ if __name__ == "__main__":
                 _check_solution(solution, recursive_out, ct, 'Recursive Solver')
                 _check_solution(solution, standard_out, ct, 'Standard Solver')
 
-                print('Puzzle: {}   Recursive time: {:.3f}  Standard time: {:.3f}'.format((ct), recursive_time, standard_time ))
+                print('Puzzle: {}   Recursive time: {:.3f}  Standard time: {:.3f}'.format((ct), recursive_time,
+                                                                                          standard_time ))
                 print('Puzzle: {}   Recursive total: {:.3f}  Standard total: {:.3f}'.format((ct), recursive_sum,
                                                                                           standard_sum))
         except KeyboardInterrupt:
