@@ -76,6 +76,7 @@ def _load_digit_model():
 
 
 def _train_digit_model():
+    # TODO: force build the model using the mnist data set and predefined cnn
     pass
 
 
@@ -218,7 +219,7 @@ def _four_point_transform(image, pts):
 def _suppress_grid_lines(binary, gray):
     edge_len = binary.shape[0]
 
-    edges = cv2.Canny(binary, 50, 150, apertureSize=3)
+    edges = cv2.Canny(gray, 50, 150, apertureSize=3)
 
     # Debugging aide
     # cv2.imshow('canny', edges)
@@ -246,7 +247,7 @@ def _suppress_grid_lines(binary, gray):
                     y0 = b * rho
                     pt1 = (int(x0 + 1000 * (-b)), int(y0 + 1000 * (a)))
                     pt2 = (int(x0 - 1000 * (-b)), int(y0 - 1000 * (a)))
-                    cv2.line(gray, pt1, pt2, (0), 7, cv2.LINE_AA)     # Use thick lines to cover up the grid
+                    # cv2.line(gray, pt1, pt2, (0), 7, cv2.LINE_AA)     # Use thick lines to cover up the grid
                     cv2.line(binary, pt1, pt2, (0), 7, cv2.LINE_AA)
                     break
 
@@ -312,8 +313,6 @@ def _get_values(model, binary, gray):
         return ''
 
     step_size = rows/9
-
-
 
     suppressed_grid_gray, suppressed_grid_binary = _suppress_grid_lines(binary, gray)
     # _show_image(suppressed_grid_gray)
@@ -392,16 +391,15 @@ def extract_puzzle(img, display_step_time=200):
     adaptive_kernel_size = 31
     adaptive_offset = 9
 
-    # ML digit classifier
-    model = _load_digit_model()
-    if model is None:
-        return
-
     # Print information about each layer's outputs and trainable values
     # print(model.summary())
 
     # Puzzle status where 0 represents unknown
     ret = ''.join(str(0) for x in range(81))
+    # ML digit classifier
+    model = _load_digit_model()
+    if model is None:
+        return ret, None
 
     gray = _safe_convert_to_gray(img)
 
@@ -419,14 +417,17 @@ def extract_puzzle(img, display_step_time=200):
 
     if puzzle_region is None or len(puzzle_region) != 4:
         print('Failed to find any suitable contours representative of a sudoku board.')
-        return ret  # Empty board
+        return ret, None  # Empty board
 
     transformed_gray = _four_point_transform(normalized, puzzle_region)
     transformed_binary = _four_point_transform(binary, puzzle_region)
 
+
     values = _get_values(model, transformed_binary, transformed_gray)
 
-    return values
+    cv2.destroyAllWindows()
+
+    return values, transformed_gray
 
 
 if __name__ == "__main__":
@@ -442,7 +443,7 @@ if __name__ == "__main__":
 
     for target, answer_raw in zip(image_files, answers):
         image = cv2.imread(target_dir + target)
-        prediction = extract_puzzle(image, display_speed)
+        prediction, undistorted_puzzle = extract_puzzle(image, display_speed)
 
         answer = answer_raw.strip()
 

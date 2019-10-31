@@ -1,9 +1,8 @@
 import numpy as np
-import math
-from sudoku_visualizer import display_board
+from sudoku_visualizer import Visualizer
 
 class Puzzle:
-    def __init__(self, values = None, display_updates = False):
+    def __init__(self, values=None, visualizer = None, display_updates = False, window_name = 'Traditional Solver'):
         if values is None:
             inputs = np.zeros((9,9))
         else:
@@ -23,9 +22,14 @@ class Puzzle:
         for i in range(0, len(self.nines_list), 3):
             self.nines.append([self.nines_list[i],self.nines_list[i+1],self.nines_list[i+2]])
 
+        if visualizer is not None:
+            self.visualiser = visualizer
+        else:
+            self.visualiser = Visualizer(values, window_name=window_name)
+
     def solve(self):
         if self.display_updates:
-            display_board(self._get_status())
+            self.visualiser.display_frame(self._get_status())
         while True:
             if( self._solved() ):
                 return self._get_status(characters=True)
@@ -54,6 +58,7 @@ class Puzzle:
                 nine.internal_nine_check()
 
     def solve_recursive(self, board, display_updates = False):
+        self.visualiser.window_name = 'Recursive Solver'
         success, board = self._solve_recursive(board, (0, 0), display_updates)
         return board
 
@@ -76,7 +81,7 @@ class Puzzle:
 
         boardstatus = [x for r in board for x in r]
         if display_updates:
-            display_board(boardstatus, name='Recursive Solver')
+            self.visualiser.display_frame(boardstatus)
 
         return success, board
 
@@ -108,9 +113,10 @@ class Puzzle:
 
     def display_board(self, name=None):
         if name is not None:
-            display_board(self._get_status(),wait=True, name=name)
-        else:
-            display_board(self._get_status())
+            self.visualiser.window_name = name
+
+        status = self._get_status()
+        self.visualiser.display_frame(status)
 
     def _solved(self):
         for nine in self.nines_list:
@@ -133,7 +139,7 @@ class Puzzle:
     def _get_status(self, characters = False):
         '''
         Gather 81 values. Use zeros where unsure
-        :return: List of values of each Single
+        :return: return string of values
         '''
 
         ret = np.zeros((9,9), dtype=np.uint8)
@@ -278,5 +284,3 @@ class Single:
             self.known = True
             if self.puzzle.display_updates:
                 self.puzzle.display_board()
-
-
