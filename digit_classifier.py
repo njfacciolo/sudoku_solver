@@ -63,8 +63,6 @@ score = model.evaluate(x_test, y_test, verbose=0)
 print('Test loss:', score[0])
 print('Test accuracy:', score[1])
 
-
-
 # check if directory exists / add if it doesn't
 target_dir = 'digit_model/'
 if not os.path.exists(target_dir):

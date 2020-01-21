@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from time import perf_counter
 
 class Visualizer:
     def __init__(self, board_start_state, canvas=None, window_name = 'Solver', default_edge_length = 640):
@@ -83,6 +84,7 @@ class Visualizer:
         return image
 
     def generate_frame(self, board_state):
+
         new_frame = np.copy(self.canvas)
 
         x, y = 0, 0
@@ -99,3 +101,6 @@ class Visualizer:
         self.tempframe = self.generate_frame(board_state)
         cv2.imshow(str(self.window_name), self.tempframe)
         cv2.waitKey(display_time)
+
+        if display_time <= 0:
+            cv2.destroyAllWindows()

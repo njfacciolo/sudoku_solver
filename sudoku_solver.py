@@ -19,7 +19,7 @@ def _check_solution(real_solution, solved_puzzle, puzzlenumber, solver):
 if __name__ == "__main__":
     show_recursive = True
     show_standard = False
-    puzzle_extractor_display_time = 350 # -1 waits for user at each step, 0 displays nothing, else display in ms
+    puzzle_extractor_display_time = 100 # -1 waits for user at each step, 0 displays nothing, else display in ms
 
     images_path = 'puzzles/puzzle_pictures/'
     image_types = ['.jpg', '.JPG', '.png', '.PNG']

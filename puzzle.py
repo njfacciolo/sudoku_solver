@@ -1,5 +1,6 @@
 import numpy as np
 from sudoku_visualizer import Visualizer
+from time import perf_counter
 
 class Puzzle:
     def __init__(self, values=None, visualizer = None, display_updates = False, window_name = 'Traditional Solver'):
@@ -7,6 +8,8 @@ class Puzzle:
             inputs = np.zeros((9,9))
         else:
             inputs = np.asarray(values)
+            if inputs.shape is not (9,9):
+                inputs = np.reshape(inputs, (9,9))
 
         self.display_updates = display_updates
 
@@ -60,6 +63,7 @@ class Puzzle:
     def solve_recursive(self, board, display_updates = False):
         self.visualiser.window_name = 'Recursive Solver'
         success, board = self._solve_recursive(board, (0, 0), display_updates)
+        self.visualiser.display_frame([x for r in board for x in r], 0)
         return board
 
     def _solve_recursive(self, board, index, display_updates):
@@ -81,7 +85,7 @@ class Puzzle:
 
         boardstatus = [x for r in board for x in r]
         if display_updates:
-            self.visualiser.display_frame(boardstatus)
+            self.visualiser.display_frame(boardstatus, display_time=1)
 
         return success, board
 
